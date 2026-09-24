@@ -65,6 +65,28 @@ rotas que não são ficheiros reais.
 
 ---
 
+## Identidade visual
+
+Dois ficheiros em `public/`, com papéis diferentes de propósito:
+
+| Ficheiro | Onde aparece |
+|---|---|
+| `logo.png` (512×512) | separador do browser (favicon) e ecrã de login |
+| `icon-app.png` (256×256) | ícone do atalho no telemóvel (`apple-touch-icon` + manifest) |
+
+No login o logótipo entra como `<img>` e não dentro de um quadrado `bg-primary`:
+é azul sobre transparente e sobre fundo azul desapareceria.
+
+O `icon-app.png` está declarado como `any` **e** `maskable`. Sendo uma foto
+quadrada sem transparência, o Android mostra-a a sangrar em vez de a encaixar
+num círculo branco.
+
+O `manifest.webmanifest` é o que torna a app instalável — sem ele, "Adicionar
+ao ecrã principal" no Android cria um marcador com ícone genérico em vez de um
+atalho de aplicação.
+
+---
+
 ## Utilizadores e perfis
 
 O login não usa email/password do Supabase Auth diretamente. A edge function
