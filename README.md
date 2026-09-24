@@ -35,6 +35,36 @@ npm run build   # produção → dist/
 
 ---
 
+## Deploy (GitHub Pages)
+
+A app está publicada em **https://bpessoamtg.github.io/acessorios-mtg1/**
+(repo `bpessoamtg/acessorios-mtg1`, público — o Pages não serve repos privados
+no plano gratuito).
+
+Qualquer `push` para `main` dispara `.github/workflows/deploy.yml`, que faz o
+build e publica. Não há passo manual.
+
+As variáveis do Supabase entram no build como **secrets do repositório**:
+
+```bash
+gh secret set VITE_SUPABASE_URL --body "https://cjqnidiydxpjxdgfphit.supabase.co"
+gh secret set VITE_SUPABASE_PUBLISHABLE_KEY --body "<a-chave-anon>"
+```
+
+Depois de mudar um secret é preciso relançar o workflow — os secrets só são
+lidos no momento do build:
+
+```bash
+gh workflow run deploy.yml
+```
+
+Duas coisas que o deploy em subdiretório obriga e já estão tratadas:
+o `BASE_PATH` passado ao Vite (derivado do nome do repo) e a cópia
+`index.html` → `404.html`, que é como o Pages deixa o React Router encaminhar
+rotas que não são ficheiros reais.
+
+---
+
 ## Utilizadores e perfis
 
 O login não usa email/password do Supabase Auth diretamente. A edge function
