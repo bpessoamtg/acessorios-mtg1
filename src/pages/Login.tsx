@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { getTranslations } from '@/lib/i18n';
 
@@ -38,9 +38,14 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm shadow-xl border-border/50">
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mb-4">
-            <Package className="w-8 h-8 text-primary-foreground" />
-          </div>
+          {/* O logótipo é azul sobre transparente — sobre fundo primary desaparecia. */}
+          <img
+            src={`${import.meta.env.BASE_URL}logo.png`}
+            alt="Metalogalva"
+            width={64}
+            height={64}
+            className="mx-auto w-16 h-16 mb-4"
+          />
           <h1 className="text-2xl font-bold text-foreground">{t.loginTitle}</h1>
           <p className="text-muted-foreground text-sm">{t.loginSubtitle}</p>
         </CardHeader>

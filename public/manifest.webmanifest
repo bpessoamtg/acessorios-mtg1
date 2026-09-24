@@ -1,0 +1,19 @@
+{
+  "name": "Gestão de Acessórios MTG1_Exp",
+  "short_name": "Acessórios",
+  "description": "Gestão de stock e movimentação de acessórios no parque MTG1",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#1189b5",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
