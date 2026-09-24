@@ -1,0 +1,1 @@
+CREATE POLICY "Anyone can insert lookup" ON public.model_sap_lookup FOR INSERT WITH CHECK (true);
