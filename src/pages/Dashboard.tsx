@@ -38,7 +38,12 @@ const Dashboard = () => {
         { id: 'search', label: t.search, icon: Search },
         { id: 'stock', label: t.stock, icon: BarChart3 },
         { id: 'history', label: t.history, icon: History },
-        ...(isAdmin ? [{ id: 'messages', label: t.messages, icon: Mail }] : []),
+        ...(isAdmin
+          ? [
+              { id: 'inventory', label: 'Inventário', icon: ClipboardCheck },
+              { id: 'messages', label: t.messages, icon: Mail },
+            ]
+          : []),
       ];
 
   return (
@@ -53,13 +58,14 @@ const Dashboard = () => {
         </button>
       </header>
 
-      <main className="flex-1 overflow-auto pb-20">
+      {/* The window scrolls, not <main>: an overflow here would trap sticky headers. */}
+      <main className="flex-1 pb-20">
         {activeTab === 'movement' && !isInventory && <MovementTab />}
         {activeTab === 'search' && !isInventory && <SearchTab />}
         {activeTab === 'stock' && !isInventory && <StockTab />}
         {activeTab === 'history' && !isInventory && <HistoryTab />}
         {activeTab === 'messages' && isAdmin && <MessagesTab />}
-        {activeTab === 'inventory' && <InventoryTab />}
+        {activeTab === 'inventory' && (isInventory || isAdmin) && <InventoryTab />}
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border flex z-50">
