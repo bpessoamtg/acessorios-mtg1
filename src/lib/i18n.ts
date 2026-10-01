@@ -4,6 +4,8 @@
 const pt = {
   // Dashboard / nav
   appTitle: 'Gestão Stock',
+  goToPicking: 'Picking',
+  goToPickingHint: 'Abrir a app de picking',
   movement: 'Movimento',
   search: 'Procurar',
   stock: 'Stock',
@@ -115,6 +117,8 @@ const pt = {
 
 const en: typeof pt = {
   appTitle: 'Stock Management',
+  goToPicking: 'Picking',
+  goToPickingHint: 'Open the picking app',
   movement: 'Movement',
   search: 'Search',
   stock: 'Stock',

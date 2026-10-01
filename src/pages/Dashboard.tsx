@@ -8,7 +8,8 @@ import SearchTab from '@/components/tabs/SearchTab';
 import StockTab from '@/components/tabs/StockTab';
 import MessagesTab from '@/components/tabs/MessagesTab';
 import InventoryTab from '@/components/tabs/InventoryTab';
-import { Package, History, Search, BarChart3, LogOut, Mail, ClipboardCheck } from 'lucide-react';
+import { Package, History, Search, BarChart3, LogOut, Mail, ClipboardCheck, Truck } from 'lucide-react';
+import { PICKING_URL } from '@/lib/constants';
 import { getTranslations } from '@/lib/i18n';
 
 const Dashboard = () => {
@@ -53,9 +54,22 @@ const Dashboard = () => {
           <h1 className="text-lg font-bold text-foreground leading-tight">{t.appTitle}</h1>
           <p className="text-xs text-muted-foreground">{user?.username}</p>
         </div>
-        <button onClick={logout} className="p-2 text-muted-foreground hover:text-destructive transition-colors">
-          <LogOut className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          {/* O perfil de inventário só conta stock: não faz picking */}
+          {!isInventory && (
+            <a
+              href={PICKING_URL}
+              title={t.goToPickingHint}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors"
+            >
+              <Truck className="w-4 h-4" />
+              {t.goToPicking}
+            </a>
+          )}
+          <button onClick={logout} className="p-2 text-muted-foreground hover:text-destructive transition-colors">
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
       </header>
 
       {/* The window scrolls, not <main>: an overflow here would trap sticky headers. */}

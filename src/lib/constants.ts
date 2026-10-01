@@ -16,6 +16,10 @@ for (const [letter, max] of fiadaRanges) {
 // Extra locations seen in data
 FIADAS.push('RAMPA', 'CORREDOR', 'COBERTO');
 
+// App de picking da expedição. Está no mesmo domínio, por isso o operador salta
+// de uma para a outra sem voltar a entrar em nenhuma das duas.
+export const PICKING_URL = 'https://bpessoamtg.github.io/picking-mtg1/';
+
 export const MOVEMENT_TYPES = [
   { value: 'entrada', label: 'Entrada', icon: '📥', color: 'text-success' },
   { value: 'saida', label: 'Saída', icon: '📤', color: 'text-destructive' },
