@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { getTranslations } from '@/lib/i18n';
 import ComboboxField from '@/components/ComboboxField';
 import { useModelOptions, useCestaOptions, useFiadaOptions } from '@/hooks/useFieldOptions';
 import { useCestaContents } from '@/hooks/useCestaContents';
+import { isSameLocation, wholeCestaQuantity } from '@/lib/transfer';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,6 +62,21 @@ const MovementTab = () => {
 
   const isTransfer = tipo === 'transferencia';
 
+  // Moving a whole cesta to another fiada is the usual transfer, so quantity
+  // and destination cesta come pre-filled. They stop following the origin as
+  // soon as the operator edits them.
+  const qtyEdited = useRef(false);
+  const destEdited = useRef(false);
+
+  useEffect(() => {
+    if (!isTransfer || !cesta) return;
+    if (!destEdited.current) setCestaDestino(cesta);
+    if (!qtyEdited.current) {
+      const qty = wholeCestaQuantity(cestaContents, modelo, fiada);
+      setQuantidade(qty === null ? '' : String(qty));
+    }
+  }, [isTransfer, cesta, modelo, fiada, cestaContents]);
+
   useEffect(() => {
     if (cestaContents.length > 0 && cesta) {
       if (!fiada && cestaContents[0].fiada) {
@@ -86,6 +102,10 @@ const MovementTab = () => {
     }
     if (isTransfer && (!cestaDestino || !fiadaDestino)) {
       toast.error(t.fillDestination);
+      return;
+    }
+    if (isTransfer && isSameLocation({ cesta, fiada }, { cesta: cestaDestino, fiada: fiadaDestino })) {
+      toast.error(t.sameLocation);
       return;
     }
     if (GENERIC_MODELS.includes(modelo)) {
@@ -294,6 +314,8 @@ const MovementTab = () => {
       );
 
       setModelo('');
+      qtyEdited.current = false;
+      destEdited.current = false;
       setQuantidade('');
       setCesta('');
       setFiada('');
@@ -339,7 +361,7 @@ const MovementTab = () => {
               <ComboboxField
                 label={isTransfer ? t.cestaOrigin : t.cesta}
                 value={cesta}
-                onChange={(v) => { setCesta(v); setFiada(''); setModelo(''); }}
+                onChange={(v) => { qtyEdited.current = false; setCesta(v); setFiada(''); setModelo(''); }}
                 options={cestaOptions}
                 placeholder="Cesta..."
               />
@@ -372,7 +394,7 @@ const MovementTab = () => {
               <Input
                 type="number"
                 value={quantidade}
-                onChange={(e) => setQuantidade(e.target.value)}
+                onChange={(e) => { qtyEdited.current = true; setQuantidade(e.target.value); }}
                 placeholder="0"
                 min="1"
                 className="h-12 text-lg font-mono-app"
@@ -384,7 +406,7 @@ const MovementTab = () => {
                 <ComboboxField
                   label={t.cestaDest}
                   value={cestaDestino}
-                  onChange={setCestaDestino}
+                  onChange={(v) => { destEdited.current = true; setCestaDestino(v); }}
                   options={cestaOptions}
                   placeholder="Cesta..."
                 />
