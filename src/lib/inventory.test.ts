@@ -16,6 +16,7 @@ import {
   OutboxOp,
   passesFilter,
   progressOf,
+  resolveModelo,
   proposeAdjustments,
   selectedByDefault,
   stockMap,
@@ -284,5 +285,33 @@ describe('ordenar pela hora da contagem', () => {
   it('item encontrado também entra pela hora em que foi contado', () => {
     const f = found({ real_modelo: 'X', real_cesta: 'MTG1_CB430', real_qty: '5', counted_at: '2026-10-12T16:00:00Z' });
     expect([contada('MTG1_CB020', '14:27'), f].sort(compareByCountedAt('desc'))[0].real_cesta).toBe('MTG1_CB430');
+  });
+});
+
+describe('nome do modelo escrito ou escolhido', () => {
+  const base = ['TOVM0435', 'CAO3B05S075', 'Single bracket 1000mm, 5º Ø60mm -> Ø76mm', 'Top extension 42/60 | N139862'];
+
+  it('um modelo escolhido da lista mantém a grafia da base, também em minúsculas', () => {
+    expect(resolveModelo('Single bracket 1000mm, 5º Ø60mm -> Ø76mm', base)).toBe('Single bracket 1000mm, 5º Ø60mm -> Ø76mm');
+  });
+  it('escrito com outras maiúsculas, fica com o nome da base', () => {
+    expect(resolveModelo('SINGLE BRACKET 1000MM, 5º Ø60MM -> Ø76MM', base)).toBe('Single bracket 1000mm, 5º Ø60mm -> Ø76mm');
+    expect(resolveModelo('cao3b05s075', base)).toBe('CAO3B05S075');
+  });
+  it('modelo que não existe é novo e fica em maiúsculas', () => {
+    expect(resolveModelo('cao9x99s999', base)).toBe('CAO9X99S999');
+  });
+  it('não corrige zeros nem adivinha: TOVM435 não é TOVM0435', () => {
+    expect(resolveModelo('tovm435', base)).toBe('TOVM435');
+  });
+  it('ignora espaços nas pontas', () => {
+    expect(resolveModelo('  TOVM0435 ', base)).toBe('TOVM0435');
+  });
+  it('vazio continua vazio', () => {
+    expect(resolveModelo('   ', base)).toBe('');
+  });
+  it('se a base tiver duas grafias que só diferem nas maiúsculas, não escolhe uma por ele', () => {
+    expect(resolveModelo('abc', ['Abc', 'ABc'])).toBe('ABC');
+    expect(resolveModelo('Abc', ['Abc', 'ABc'])).toBe('Abc');
   });
 });

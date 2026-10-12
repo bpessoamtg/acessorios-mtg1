@@ -62,7 +62,21 @@ export function normalizeFiada(input: string): string {
   return s.toUpperCase();
 }
 
-export const normalizeModelo = (input: string) => input.trim().toUpperCase();
+/**
+ * The model name to store for what the operator typed or picked.
+ *
+ * A name already in the database keeps its exact spelling, including lower
+ * case: some models are descriptions ("Single bracket 1000mm, 5º Ø60mm") and
+ * forcing capitals made every pick from the suggestions a different model.
+ * Text that matches nothing is a new model and is written in capitals.
+ */
+export function resolveModelo(input: string, known: string[]): string {
+  const s = input.trim();
+  if (!s) return '';
+  if (known.includes(s)) return s;
+  const sameIgnoringCase = known.filter((m) => m.toLowerCase() === s.toLowerCase());
+  return sameIgnoringCase.length === 1 ? sameIgnoringCase[0] : s.toUpperCase();
+}
 
 const fiadaKey = (f: string): [number, number, string] => {
   if (!f) return [9, 0, ''];

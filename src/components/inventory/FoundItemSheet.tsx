@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { normalizeCesta, normalizeFiada, normalizeModelo } from '@/lib/inventory';
+import { normalizeCesta, normalizeFiada, resolveModelo } from '@/lib/inventory';
 import { InvStrings } from '@/lib/inventoryI18n';
 import AutocompleteInput from './AutocompleteInput';
 
@@ -39,7 +39,7 @@ const FoundItemSheet = ({ open, fiada, t, models, sap, cestaOptions, fiadaOption
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    const m = normalizeModelo(modelo);
+    const m = resolveModelo(modelo, models);
     const c = normalizeCesta(cesta);
     const next: Errors = {};
     if (!m) next.modelo = t.errModel;
@@ -73,7 +73,7 @@ const FoundItemSheet = ({ open, fiada, t, models, sap, cestaOptions, fiadaOption
               options={models}
               hintFor={(m) => sap[m]}
               newLabel={t.useNew}
-              normalize={normalizeModelo}
+              normalize={(v) => resolveModelo(v, models)}
               error={errors.modelo}
               autoFocus
             />
