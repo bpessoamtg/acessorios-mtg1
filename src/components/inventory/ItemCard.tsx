@@ -36,10 +36,14 @@ interface ItemCardProps {
   onRemove: () => void;
 }
 
+// Time only for today; day and month too for earlier ones, because the list can
+// now be sorted by count time and a count may be from a previous day.
 const hhmm = (iso: string | null) => {
   if (!iso) return '';
   const d = new Date(iso);
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  if (d.toDateString() === new Date().toDateString()) return time;
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')} ${time}`;
 };
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 const isWholeNumber = (v: string) => /^\d+$/.test(v.trim());

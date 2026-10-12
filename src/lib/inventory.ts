@@ -125,6 +125,28 @@ export const hasDifference = (r: AuditRow) => {
   return k === 'new' || k === 'moved' || k === 'zero' || k === 'qty';
 };
 
+/** When the line was counted, or null if not counted (or the time is missing). */
+export function countedAtMs(r: AuditRow): number | null {
+  if (!isCounted(r) || !r.counted_at) return null;
+  const t = Date.parse(r.counted_at);
+  return Number.isNaN(t) ? null : t;
+}
+
+/**
+ * Newest count first ('desc') or oldest first ('asc'). Lines with no count time
+ * go last either way, and equal times fall back to cesta order.
+ */
+export function compareByCountedAt(dir: 'desc' | 'asc' = 'desc') {
+  return (a: AuditRow, b: AuditRow): number => {
+    const ta = countedAtMs(a);
+    const tb = countedAtMs(b);
+    if (ta === null && tb === null) return compareByCesta(a, b);
+    if (ta === null) return 1;
+    if (tb === null) return -1;
+    return (dir === 'desc' ? tb - ta : ta - tb) || compareByCesta(a, b);
+  };
+}
+
 export type Filter = 'pending' | 'counted' | 'diff' | 'all';
 
 export function passesFilter(r: AuditRow, f: Filter): boolean {

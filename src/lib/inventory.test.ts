@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AuditRow,
   compareByCesta,
+  compareByCountedAt,
   compareFiada,
   enqueue,
   groupByFiada,
@@ -243,5 +244,45 @@ describe('fila sem rede', () => {
     const server = [row({ id: 'a', real_qty: '46', applied_at: '2026-09-29T10:00:00Z' })];
     const v = overlay(server, [{ kind: 'count', id: 'a', patch: patch('10'), at: 1 }]);
     expect(v[0].real_qty).toBe('46');
+  });
+});
+
+describe('ordenar pela hora da contagem', () => {
+  const contada = (cesta: string, hora: string, over: Partial<AuditRow> = {}) =>
+    row({ system_cesta: cesta, real_cesta: cesta, real_qty: '10', counted_at: `2026-10-12T${hora}:00Z`, ...over });
+  const lista = () => [
+    contada('MTG1_CB010', '10:59'),
+    row({ system_cesta: 'MTG1_CB001' }),
+    contada('MTG1_CB020', '14:27'),
+    contada('MTG1_CB030', '11:06'),
+  ];
+
+  it('mais recentes primeiro, e os por contar no fim', () => {
+    expect(lista().sort(compareByCountedAt('desc')).map((r) => r.system_cesta)).toEqual([
+      'MTG1_CB020', 'MTG1_CB030', 'MTG1_CB010', 'MTG1_CB001',
+    ]);
+  });
+  it('mais antigas primeiro, com os por contar sempre no fim', () => {
+    expect(lista().sort(compareByCountedAt('asc')).map((r) => r.system_cesta)).toEqual([
+      'MTG1_CB010', 'MTG1_CB030', 'MTG1_CB020', 'MTG1_CB001',
+    ]);
+  });
+  it('a data conta, não só a hora: ontem às 18:00 é mais antiga que hoje às 08:00', () => {
+    const ontem = contada('MTG1_CB050', '18:00', { counted_at: '2026-10-11T18:00:00Z' });
+    const hoje = contada('MTG1_CB060', '08:00');
+    expect([ontem, hoje].sort(compareByCountedAt('desc')).map((r) => r.system_cesta)).toEqual(['MTG1_CB060', 'MTG1_CB050']);
+  });
+  it('contada sem hora registada vai para o fim, não parte a ordenação', () => {
+    const semHora = row({ system_cesta: 'MTG1_CB040', real_qty: '10', counted_at: null });
+    const r = [semHora, contada('MTG1_CB020', '14:27')].sort(compareByCountedAt('desc'));
+    expect(r.map((x) => x.system_cesta)).toEqual(['MTG1_CB020', 'MTG1_CB040']);
+  });
+  it('mesma hora: desempata pela cesta', () => {
+    const r = [contada('MTG1_CB090', '09:00'), contada('MTG1_CB005', '09:00')].sort(compareByCountedAt('desc'));
+    expect(r.map((x) => x.system_cesta)).toEqual(['MTG1_CB005', 'MTG1_CB090']);
+  });
+  it('item encontrado também entra pela hora em que foi contado', () => {
+    const f = found({ real_modelo: 'X', real_cesta: 'MTG1_CB430', real_qty: '5', counted_at: '2026-10-12T16:00:00Z' });
+    expect([contada('MTG1_CB020', '14:27'), f].sort(compareByCountedAt('desc'))[0].real_cesta).toBe('MTG1_CB430');
   });
 });

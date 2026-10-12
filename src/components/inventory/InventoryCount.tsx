@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, CloudOff, CloudUpload, Loader2, Plus, Search, User } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Check, CloudOff, CloudUpload, Loader2, Plus, Search, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -8,6 +8,7 @@ import { CESTAS, FIADAS } from '@/lib/constants';
 import {
   AuditRow,
   compareByCesta,
+  compareByCountedAt,
   Filter,
   groupByFiada,
   isSpecialCesta,
@@ -31,13 +32,15 @@ interface InventoryCountProps {
   onSwitchOperator: (() => void) | null;
 }
 
-type View = 'fiada' | 'cesta';
+type View = 'fiada' | 'cesta' | 'hora';
+const VIEWS: View[] = ['fiada', 'cesta', 'hora'];
 const PAGE = 60;
 const VIEW_KEY = 'inventory-view';
 
 const readView = (): View => {
   try {
-    return localStorage.getItem(VIEW_KEY) === 'cesta' ? 'cesta' : 'fiada';
+    const v = localStorage.getItem(VIEW_KEY) as View | null;
+    return v && VIEWS.includes(v) ? v : 'fiada';
   } catch {
     return 'fiada';
   }
@@ -53,6 +56,7 @@ const InventoryCount = ({ inv, t, operator, lang, onToggleLang, onSwitchOperator
   const [view, setView] = useState<View>(readView);
   const [fiada, setFiada] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>('pending');
+  const [timeDir, setTimeDir] = useState<'desc' | 'asc'>('desc');
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(PAGE);
   const [foundFor, setFoundFor] = useState<string | null>(null);
@@ -119,10 +123,13 @@ const InventoryCount = ({ inv, t, operator, lang, onToggleLang, onSwitchOperator
     </Button>
   );
 
+  // The same order applies to the search results, so searching never resets it.
+  const order = view === 'hora' ? compareByCountedAt(timeDir) : compareByCesta;
+
   let body: JSX.Element;
   const q = query.trim();
   if (q) {
-    const hits = rows.filter((r) => matchesSearch(r, q, sap)).sort(compareByCesta);
+    const hits = rows.filter((r) => matchesSearch(r, q, sap)).sort(order);
     body = (
       <>
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-1">{t.results(hits.length)}</p>
@@ -202,6 +209,15 @@ const InventoryCount = ({ inv, t, operator, lang, onToggleLang, onSwitchOperator
         </div>
         {shown.length ? shown.map((r) => card(r, false)) : emptyForFilter()}
         {foundButton(fiada, t.foundHere)}
+      </>
+    );
+  } else if (view === 'hora') {
+    const list = rows.filter((r) => passesFilter(r, filter)).sort(order);
+    body = (
+      <>
+        {foundButton('', t.found)}
+        {list.length ? list.slice(0, limit).map((r) => card(r, true)) : emptyForFilter()}
+        {more(Math.min(limit, list.length), list.length)}
       </>
     );
   } else {
@@ -286,23 +302,35 @@ const InventoryCount = ({ inv, t, operator, lang, onToggleLang, onSwitchOperator
       </div>
 
       <div className="px-4 pt-3 grid gap-2.5">
-        <div role="group" aria-label="Ordenar" className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
-          {(['fiada', 'cesta'] as View[]).map((v) => (
-            <button
-              key={v}
-              aria-pressed={view === v}
-              onClick={() => {
-                setView(v);
-                setFiada(null);
-              }}
-              className={cn(
-                'h-9 rounded-md text-sm font-semibold transition-colors',
-                view === v ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground',
-              )}
-            >
-              {v === 'fiada' ? t.byFiada : t.byCesta}
-            </button>
-          ))}
+        <div role="group" aria-label="Ordenar" className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
+          {VIEWS.map((v) => {
+            const active = view === v;
+            const label = v === 'fiada' ? t.byFiada : v === 'cesta' ? t.byCesta : t.byTime;
+            return (
+              <button
+                key={v}
+                aria-pressed={active}
+                title={v === 'hora' && active ? (timeDir === 'desc' ? t.newestFirst : t.oldestFirst) : undefined}
+                onClick={() => {
+                  if (v === 'hora' && active) {
+                    setTimeDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+                    return;
+                  }
+                  setView(v);
+                  setFiada(null);
+                  // "To count" has no time to sort by, so showing the counted ones is what is meant.
+                  if (v === 'hora' && filter === 'pending') setFilter('counted');
+                }}
+                className={cn(
+                  'h-9 rounded-md text-sm font-semibold transition-colors inline-flex items-center justify-center gap-1',
+                  active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground',
+                )}
+              >
+                {label}
+                {v === 'hora' && active && (timeDir === 'desc' ? <ArrowDown className="w-3.5 h-3.5" aria-hidden /> : <ArrowUp className="w-3.5 h-3.5" aria-hidden />)}
+              </button>
+            );
+          })}
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
