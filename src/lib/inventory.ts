@@ -125,10 +125,11 @@ export const hasDifference = (r: AuditRow) => {
   return k === 'new' || k === 'moved' || k === 'zero' || k === 'qty';
 };
 
-export type Filter = 'pending' | 'diff' | 'all';
+export type Filter = 'pending' | 'counted' | 'diff' | 'all';
 
 export function passesFilter(r: AuditRow, f: Filter): boolean {
   if (f === 'pending') return !isCounted(r);
+  if (f === 'counted') return isCounted(r);
   if (f === 'diff') return hasDifference(r);
   return true;
 }

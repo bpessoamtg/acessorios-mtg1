@@ -104,7 +104,8 @@ const InventoryCount = ({ inv, t, operator, lang, onToggleLang, onSwitchOperator
   const empty = (text: string) => (
     <div className="rounded-xl border border-dashed border-border bg-card px-4 py-8 text-center text-muted-foreground">{text}</div>
   );
-  const emptyForFilter = () => empty(filter === 'diff' ? t.emptyDiff : t.emptyPending);
+  const emptyForFilter = () =>
+    empty(filter === 'diff' ? t.emptyDiff : filter === 'counted' ? t.emptyCounted : t.emptyPending);
   const more = (shown: number, total: number) =>
     total > shown && (
       <Button variant="outline" className="h-11 hover:bg-muted hover:text-foreground" onClick={() => setLimit((l) => l + PAGE)}>
@@ -131,7 +132,10 @@ const InventoryCount = ({ inv, t, operator, lang, onToggleLang, onSwitchOperator
     );
   } else if (view === 'fiada' && fiada === null) {
     const groups = groupByFiada(rows).filter((g) =>
-      filter === 'pending' ? g.pending > 0 : filter === 'diff' ? g.diffs > 0 : true,
+      filter === 'pending' ? g.pending > 0
+        : filter === 'counted' ? g.counted > 0
+        : filter === 'diff' ? g.diffs > 0
+        : true,
     );
     body = groups.length ? (
       <>
@@ -315,6 +319,7 @@ const InventoryCount = ({ inv, t, operator, lang, onToggleLang, onSwitchOperator
         <div className="flex gap-1.5 flex-wrap">
           {([
             ['pending', t.fPending, prog.pending],
+            ['counted', t.fCounted, prog.counted],
             ['diff', t.fDiff, prog.diffs],
             ['all', t.fAll, prog.total],
           ] as [Filter, string, number][]).map(([f, label, n]) => (

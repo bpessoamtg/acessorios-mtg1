@@ -116,8 +116,11 @@ describe('filtros, pesquisa e progresso', () => {
   const rows = [row(), row({ real_qty: '46' }), row({ real_qty: '40' }), found({ real_modelo: 'CAO3B05S075', real_cesta: 'MTG1_CB430', real_fiada: 'A05', real_qty: '12' })];
   it('filtros', () => {
     expect(rows.filter((r) => passesFilter(r, 'pending'))).toHaveLength(1);
+    expect(rows.filter((r) => passesFilter(r, 'counted'))).toHaveLength(3);
     expect(rows.filter((r) => passesFilter(r, 'diff'))).toHaveLength(2);
     expect(rows.filter((r) => passesFilter(r, 'all'))).toHaveLength(4);
+    // Contado e Por contar nunca se sobrepõem e juntos dão tudo.
+    expect(rows.filter((r) => passesFilter(r, 'counted')).length + rows.filter((r) => passesFilter(r, 'pending')).length).toBe(rows.length);
   });
   it('pesquisa por cesta, modelo ou código SAP da etiqueta', () => {
     const sap = { CAO3B05S075: 'CI11CB2DG' };
