@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { buildSapMap } from '@/lib/inventoryExport';
 import {
   AuditRow,
   CountPatch,
@@ -132,7 +133,7 @@ export function useInventory() {
   const stockQ = useQuery({
     queryKey: ['inv', 'stock'],
     queryFn: async () => {
-      const { data, error } = await db.from('stock_items').select('id, modelo, cesta, fiada, quantidade').range(0, 9999);
+      const { data, error } = await db.from('stock_items').select('id, modelo, cod_sap, cesta, fiada, quantidade').range(0, 9999);
       if (error) throw error;
       return (data ?? []) as StockLine[];
     },
@@ -301,13 +302,7 @@ export function useInventory() {
     (rowsQ.data ?? []).forEach((r) => r.system_modelo && set.add(r.system_modelo));
     return [...set].sort();
   }, [modelsQ.data, rowsQ.data]);
-  const sap = useMemo(() => {
-    const m: Record<string, string> = {};
-    (modelsQ.data ?? []).forEach((x) => {
-      m[x.modelo] = x.cod_sap;
-    });
-    return m;
-  }, [modelsQ.data]);
+  const sap = useMemo(() => buildSapMap(modelsQ.data ?? [], stockQ.data ?? []), [modelsQ.data, stockQ.data]);
 
   const refresh = useCallback(() => qc.invalidateQueries({ queryKey: ['inv'] }), [qc]);
 

@@ -9,13 +9,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import {
   Adjustment,
-  AuditRow,
   compareByCesta,
   countedQty,
   isCounted,
   isSpecialCesta,
-  kindOf,
-  liveQty,
   progressOf,
   proposeAdjustments,
   rowCesta,
@@ -24,6 +21,7 @@ import {
   selectedByDefault,
 } from '@/lib/inventory';
 import { InventoryData } from '@/hooks/useInventory';
+import { inventoryExportRows } from '@/lib/inventoryExport';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -32,15 +30,6 @@ const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 const dateTime = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('pt-PT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 const fiadaLabel = (f: string) => f || 'sem fiada';
-
-const KIND_LABEL: Record<string, string> = {
-  pending: 'Por contar',
-  ok: 'Confere',
-  qty: 'Outra quantidade',
-  zero: 'Não encontrado',
-  moved: 'Noutro sítio',
-  new: 'Item encontrado',
-};
 
 function describe(a: Adjustment): string {
   const r = a.row;
@@ -63,7 +52,7 @@ const InventoryAdmin = ({ inv }: { inv: InventoryData }) => {
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
 
-  const { rows, stock, inventory, models } = inv;
+  const { rows, stock, inventory, models, sap } = inv;
   const known = useMemo(() => new Set(models), [models]);
   const prog = progressOf(rows);
   const adjustments = useMemo(
@@ -122,27 +111,7 @@ const InventoryAdmin = ({ inv }: { inv: InventoryData }) => {
     });
 
   const exportExcel = () => {
-    const data = [...rows].sort(compareByCesta).map((r: AuditRow) => {
-      const k = kindOf(r);
-      const counted = isCounted(r);
-      const live = r.system_modelo ? liveQty(r, stock) : '';
-      return {
-        'Modelo (Sistema)': r.system_modelo,
-        'Cesta (Sistema)': r.system_cesta,
-        'Fiada (Sistema)': r.system_fiada,
-        'Qtd (Sistema, início)': r.system_modelo ? r.system_qty : '',
-        'Qtd (Stock agora)': live,
-        'Modelo (Real)': r.real_modelo,
-        'Cesta (Real)': r.real_cesta,
-        'Fiada (Real)': r.real_fiada,
-        'Qtd (Real)': counted ? countedQty(r) : '',
-        'Diferença Qtd': counted ? countedQty(r) - (r.system_modelo ? r.system_qty : 0) : '',
-        Estado: KIND_LABEL[k],
-        'Contado por': r.counted_by || '',
-        'Contado em': dateTime(r.counted_at),
-        'Aplicado em': dateTime(r.applied_at),
-      };
-    });
+    const data = inventoryExportRows(rows, stock, sap, dateTime);
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Inventário');

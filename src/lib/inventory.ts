@@ -26,6 +26,7 @@ export interface AuditRow {
 export interface StockLine {
   id: string;
   modelo: string;
+  cod_sap?: string | null;
   cesta: string;
   fiada: string | null;
   quantidade: number;
