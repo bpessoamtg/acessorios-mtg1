@@ -315,3 +315,34 @@ describe('nome do modelo escrito ou escolhido', () => {
     expect(resolveModelo('Abc', ['Abc', 'ABc'])).toBe('Abc');
   });
 });
+
+describe('ajustes: modelo fora da base vem desmarcado', () => {
+  const known = new Set(['CAO3B05S075', 'TOVM0442']);
+  const novo = (modelo: string, over: Partial<AuditRow> = {}) =>
+    found({ real_modelo: modelo, real_cesta: 'Palete', real_fiada: 'C02', real_qty: '5', ...over });
+  const ajuste = (r: AuditRow) => proposeAdjustments([r], stockMap([]))[0];
+
+  it('item encontrado com um modelo da base vem marcado', () => {
+    expect(selectedByDefault(ajuste(novo('TOVM0442')), known)).toBe(true);
+  });
+  it('item encontrado com um modelo que não está na base vem desmarcado', () => {
+    expect(selectedByDefault(ajuste(novo('36007481')), known)).toBe(false);
+  });
+  it('a grafia tem de ser exatamente a da base', () => {
+    expect(selectedByDefault(ajuste(novo('tovm0442')), known)).toBe(false);
+  });
+  it('sem a lista de modelos, só conta o stock mexido, como antes', () => {
+    expect(selectedByDefault(ajuste(novo('36007481')))).toBe(true);
+  });
+  it('quando o modelo passa a existir na base, passa a vir marcado', () => {
+    const a = ajuste(novo('36007481'));
+    expect(selectedByDefault(a, known)).toBe(false);
+    expect(selectedByDefault(a, new Set([...known, '36007481']))).toBe(true);
+  });
+  it('linha de stock com modelo conhecido não é afetada', () => {
+    const r = row({ system_modelo: 'CAO3B05S075', real_modelo: 'CAO3B05S075', real_qty: '40' });
+    const stock = stockMap([{ id: r.stock_item_id as string, modelo: 'CAO3B05S075', cesta: r.system_cesta, fiada: r.system_fiada, quantidade: 46 }]);
+    const a = proposeAdjustments([r], stock)[0];
+    expect(selectedByDefault(a, known)).toBe(true);
+  });
+});

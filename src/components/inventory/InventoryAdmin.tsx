@@ -63,16 +63,18 @@ const InventoryAdmin = ({ inv }: { inv: InventoryData }) => {
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, setBusy] = useState(false);
 
-  const { rows, stock, inventory } = inv;
+  const { rows, stock, inventory, models } = inv;
+  const known = useMemo(() => new Set(models), [models]);
   const prog = progressOf(rows);
   const adjustments = useMemo(
     () => proposeAdjustments(rows, stock).sort((a, b) => compareByCesta(a.row, b.row)),
     [rows, stock],
   );
-  const isPicked = (a: Adjustment) => picked[a.row.id] ?? selectedByDefault(a);
+  const isPicked = (a: Adjustment) => picked[a.row.id] ?? selectedByDefault(a, known);
   const selected = adjustments.filter(isPicked);
   const net = selected.reduce((s, a) => s + a.delta, 0);
   const staleCount = adjustments.filter((a) => a.stale).length;
+  const unknownCount = adjustments.filter((a) => !known.has(rowModelo(a.row))).length;
   const appliedCount = rows.filter((r) => r.applied_at).length;
 
   const byOperator = useMemo(() => {
@@ -186,7 +188,10 @@ const InventoryAdmin = ({ inv }: { inv: InventoryData }) => {
         <div className={tile}>
           <span className="text-sm text-muted-foreground">Ajustes por aplicar</span>
           <b className="text-2xl">{adjustments.length}</b>
-          <span className="text-sm text-muted-foreground">{staleCount} com stock mexido</span>
+          <span className="text-sm text-muted-foreground">
+            {staleCount} com stock mexido
+            {unknownCount > 0 && ` · ${unknownCount} com modelo fora da base`}
+          </span>
         </div>
         <div className={tile}>
           <span className="text-sm text-muted-foreground">Diferença líquida</span>
@@ -251,6 +256,13 @@ const InventoryAdmin = ({ inv }: { inv: InventoryData }) => {
                   <span className="flex items-start gap-1 text-sm text-amber-800">
                     <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                     No início da contagem eram {r.system_qty}; o stock mexeu entretanto. Confirma antes de aplicar.
+                  </span>
+                )}
+                {!known.has(rowModelo(r)) && (
+                  <span className="flex items-start gap-1 text-sm text-amber-800">
+                    <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                    O modelo «{rowModelo(r)}» não existe na base de modelos. Entra no stock sem código SAP. Acrescenta-o à
+                    base ou corrige o nome antes de aplicar.
                   </span>
                 )}
                 <span className="text-xs text-muted-foreground">

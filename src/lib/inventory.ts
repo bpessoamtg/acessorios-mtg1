@@ -264,7 +264,14 @@ export function proposeAdjustments(rows: AuditRow[], stock: Map<string, number>)
 }
 
 /** Lines whose stock moved during the count need a human look first. */
-export const selectedByDefault = (a: Adjustment) => !a.stale;
+/**
+ * `known` is the set of model names in the model base. A line whose model is not
+ * in it (typed by hand during the count) would enter the stock under a name that
+ * matches nothing and with no SAP code, so it starts unticked until the model is
+ * added to the base or the name is corrected.
+ */
+export const selectedByDefault = (a: Adjustment, known?: Set<string>) =>
+  !a.stale && (!known || known.has(rowModelo(a.row)));
 
 // ── Offline outbox ─────────────────────────────────────────────────────
 // Every change is queued on the phone first and sent in order. The screen
