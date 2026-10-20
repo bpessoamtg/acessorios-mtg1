@@ -12,6 +12,7 @@ import ComboboxField from '@/components/ComboboxField';
 import { useModelOptions, useCestaOptions, useFiadaOptions } from '@/hooks/useFieldOptions';
 import { useCestaContents } from '@/hooks/useCestaContents';
 import { isSameLocation, wholeCestaQuantity } from '@/lib/transfer';
+import { gravarMovimento, totalNaCesta } from '@/lib/movimentos';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,6 +68,11 @@ const MovementTab = () => {
   // soon as the operator edits them.
   const qtyEdited = useRef(false);
   const destEdited = useRef(false);
+
+  // Um número por movimento. Se a resposta se perder na rede e o operador
+  // voltar a confirmar o mesmo movimento, a base de dados reconhece-o e não o
+  // grava duas vezes. Muda quando muda algum campo.
+  const pedido = useRef<{ chave: string; id: string } | null>(null);
 
   useEffect(() => {
     if (!isTransfer || !cesta) return;
@@ -127,10 +133,9 @@ const MovementTab = () => {
 
   const prepareConfirmation = async (extraNote?: string) => {
     const qty = parseInt(quantidade);
-    const currentItem = cestaContents.find(
-      (c) => c.modelo === modelo && c.fiada === fiada
-    );
-    const currentQty = currentItem?.quantidade || 0;
+    const chave = JSON.stringify([tipo, modelo, quantidade, cesta, fiada, cestaDestino, fiadaDestino, extraNote || '']);
+    if (!pedido.current || pedido.current.chave !== chave) pedido.current = { chave, id: crypto.randomUUID() };
+    const currentQty = totalNaCesta(cestaContents, modelo, fiada);
     const remaining = tipo === 'entrada' ? currentQty + qty : currentQty - qty;
 
     setPendingExtraNote(extraNote);
@@ -160,152 +165,37 @@ const MovementTab = () => {
   };
 
   const executeSubmit = async (extraNote?: string, correctedRemaining?: number) => {
+    if (isSubmitting || !pedido.current) return;
     setIsSubmitting(true);
     const qty = parseInt(quantidade);
 
     try {
-      const { data: sapData } = await supabase
-        .from('model_sap_lookup')
-        .select('cod_sap')
-        .eq('modelo', modelo)
-        .maybeSingle();
-
-      const codSap = sapData?.cod_sap || null;
-
-      if (tipo === 'entrada') {
-        const { data: existing } = await supabase
-          .from('stock_items')
-          .select('id, quantidade')
-          .eq('modelo', modelo)
-          .eq('cesta', cesta)
-          .eq('fiada', fiada)
-          .maybeSingle();
-
-        if (correctedRemaining !== undefined) {
-          if (existing) {
-            if (correctedRemaining === 0) {
-              await supabase.from('stock_items').delete().eq('id', existing.id);
-            } else {
-              await supabase.from('stock_items').update({ quantidade: correctedRemaining }).eq('id', existing.id);
-            }
-          } else if (correctedRemaining > 0) {
-            await supabase.from('stock_items').insert({ modelo, cod_sap: codSap, cesta, fiada, quantidade: correctedRemaining });
-          }
-        } else {
-          if (existing) {
-            await supabase.from('stock_items').update({ quantidade: existing.quantidade + qty }).eq('id', existing.id);
-          } else {
-            await supabase.from('stock_items').insert({ modelo, cod_sap: codSap, cesta, fiada, quantidade: qty });
-          }
-        }
-      } else if (tipo === 'saida') {
-        const { data: existing } = await supabase
-          .from('stock_items')
-          .select('id, quantidade')
-          .eq('modelo', modelo)
-          .eq('cesta', cesta)
-          .eq('fiada', fiada)
-          .maybeSingle();
-
-        if (correctedRemaining !== undefined) {
-          if (existing) {
-            if (correctedRemaining === 0) {
-              await supabase.from('stock_items').delete().eq('id', existing.id);
-            } else {
-              await supabase.from('stock_items').update({ quantidade: correctedRemaining }).eq('id', existing.id);
-            }
-          } else if (correctedRemaining > 0) {
-            await supabase.from('stock_items').insert({ modelo, cod_sap: codSap, cesta, fiada, quantidade: correctedRemaining });
-          }
-        } else {
-          if (!existing || existing.quantidade < qty) {
-            toast.error(t.insufficientStock);
-            setIsSubmitting(false);
-            return;
-          }
-          const newQty = existing.quantidade - qty;
-          if (newQty === 0) {
-            await supabase.from('stock_items').delete().eq('id', existing.id);
-          } else {
-            await supabase.from('stock_items').update({ quantidade: newQty }).eq('id', existing.id);
-          }
-        }
-      } else {
-        const { data: existing } = await supabase
-          .from('stock_items')
-          .select('id, quantidade')
-          .eq('modelo', modelo)
-          .eq('cesta', cesta)
-          .eq('fiada', fiada)
-          .maybeSingle();
-
-        if (correctedRemaining !== undefined) {
-          if (existing) {
-            if (correctedRemaining === 0) {
-              await supabase.from('stock_items').delete().eq('id', existing.id);
-            } else {
-              await supabase.from('stock_items').update({ quantidade: correctedRemaining }).eq('id', existing.id);
-            }
-          } else if (correctedRemaining > 0) {
-            await supabase.from('stock_items').insert({ modelo, cod_sap: codSap, cesta, fiada, quantidade: correctedRemaining });
-          }
-        } else {
-          if (!existing || existing.quantidade < qty) {
-            toast.error(t.insufficientStockOrigin);
-            setIsSubmitting(false);
-            return;
-          }
-          const newQty = existing.quantidade - qty;
-          if (newQty === 0) {
-            await supabase.from('stock_items').delete().eq('id', existing.id);
-          } else {
-            await supabase.from('stock_items').update({ quantidade: newQty }).eq('id', existing.id);
-          }
-        }
-
-        const { data: destExisting } = await supabase
-          .from('stock_items')
-          .select('id, quantidade')
-          .eq('modelo', modelo)
-          .eq('cesta', cestaDestino)
-          .eq('fiada', fiadaDestino)
-          .maybeSingle();
-
-        if (destExisting) {
-          await supabase.from('stock_items').update({ quantidade: destExisting.quantidade + qty }).eq('id', destExisting.id);
-        } else {
-          await supabase.from('stock_items').insert({ modelo, cod_sap: codSap, cesta: cestaDestino, fiada: fiadaDestino, quantidade: qty });
-        }
-      }
-
       const finalNotas = extraNote
         ? (notas ? `${notas} | ${extraNote}` : extraNote)
         : (notas || null);
 
-      const { data: movData } = await supabase.from('movements').insert({
-        tipo, modelo, cod_sap: codSap,
-        cesta_origem: cesta, fiada_origem: fiada,
-        cesta_destino: isTransfer ? cestaDestino : cesta,
-        fiada_destino: isTransfer ? fiadaDestino : fiada,
-        quantidade: qty,
-        utilizador: user?.username || 'Unknown',
+      // Tudo numa só gravação: ou fica tudo gravado ou nada, e só então se diz
+      // ao operador que ficou registado
+      const r = await gravarMovimento(pedido.current.id, {
+        tipo, modelo, cesta, fiada, quantidade: qty,
+        cestaDestino: isTransfer ? cestaDestino : undefined,
+        fiadaDestino: isTransfer ? fiadaDestino : undefined,
         notas: finalNotas,
-      }).select('id').single();
-
-      if (correctedRemaining !== undefined && movData) {
-        const currentItem = cestaContents.find(
-          (c) => c.modelo === modelo && c.fiada === fiada
+        corrigido: correctedRemaining,
+      });
+      if (!r.ok) {
+        // O formulário fica preenchido para tentar outra vez
+        console.error(r.error);
+        toast.error(
+          r.erro === 'sem_rede' ? t.notSavedNoNetwork
+            : r.erro === 'stock_insuficiente' ? (isTransfer ? t.insufficientStockOrigin : t.insufficientStock)
+            : r.erro === 'sem_permissao' ? t.sessionExpired
+            : t.errorRegistering,
+          { duration: 6000 }
         );
-        const expectedRemaining = tipo === 'entrada'
-          ? (currentItem?.quantidade || 0) + qty
-          : (currentItem?.quantidade || 0) - qty;
-
-        await supabase.from('admin_notifications').insert({
-          message: `Stock corrigido por ${user?.username}: ${modelo} em ${cesta}/${fiada}. Sistema: ${expectedRemaining} un. → Corrigido: ${correctedRemaining} un. (${tipo})`,
-          movimento_id: movData.id,
-          utilizador: user?.username || 'Unknown',
-        });
+        return;
       }
+      pedido.current = null;
 
       toast.success(
         tipo === 'entrada' ? t.addedUnits(qty, modelo)

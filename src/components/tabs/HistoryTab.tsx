@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { getTranslations } from '@/lib/i18n';
+import { estornarMovimento } from '@/lib/movimentos';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +50,9 @@ const HistoryTab = () => {
     refetchInterval: 5000,
   });
 
+  // Movimentos que já têm estorno (ligação gravada a partir de 2026-10-20)
+  const estornados = new Set((movements || []).map((m: any) => m.estorno_de).filter(Boolean));
+
   const filteredMovements = movements?.filter((m) => {
     if (!filter) return true;
     const q = filter.toLowerCase();
@@ -69,102 +73,39 @@ const HistoryTab = () => {
     }
   };
 
+  // Um número por estorno: um duplo toque ou um reenvio não estorna duas vezes
+  const pedidoEstorno = useRef<{ movimento: string; id: string } | null>(null);
+
   const handleEstorno = async () => {
-    if (!estornoTarget) return;
+    if (!estornoTarget || isProcessing) return;
     setIsProcessing(true);
     const m = estornoTarget;
+    if (!pedidoEstorno.current || pedidoEstorno.current.movimento !== m.id) {
+      pedidoEstorno.current = { movimento: m.id, id: crypto.randomUUID() };
+    }
 
     try {
-      if (m.tipo === 'entrada') {
-        const { data: existing } = await supabase
-          .from('stock_items')
-          .select('id, quantidade')
-          .eq('modelo', m.modelo)
-          .eq('cesta', m.cesta_origem)
-          .eq('fiada', m.fiada_origem)
-          .maybeSingle();
-
-        if (existing) {
-          const newQty = existing.quantidade - m.quantidade;
-          if (newQty <= 0) {
-            await supabase.from('stock_items').delete().eq('id', existing.id);
-          } else {
-            await supabase.from('stock_items').update({ quantidade: newQty }).eq('id', existing.id);
-          }
+      // Uma só gravação na base de dados: repõe o stock e regista o estorno, ou
+      // não faz nada (e diz porquê)
+      const r = await estornarMovimento(pedidoEstorno.current.id, m.id);
+      if (!r.ok) {
+        console.error(r.error);
+        toast.error(
+          r.erro === 'ja_estornado' ? t.reversalAlreadyDone
+            : r.erro === 'stock_insuficiente' ? t.reversalInsufficient
+            : r.erro === 'sem_rede' ? t.reversalNoNetwork
+            : r.erro === 'sem_permissao' ? t.sessionExpired
+            : t.reversalError,
+          { duration: 6000 }
+        );
+        if (r.erro !== 'sem_rede') {
+          pedidoEstorno.current = null;
+          setEstornoTarget(null);
         }
-      } else if (m.tipo === 'saida') {
-        const { data: existing } = await supabase
-          .from('stock_items')
-          .select('id, quantidade')
-          .eq('modelo', m.modelo)
-          .eq('cesta', m.cesta_origem)
-          .eq('fiada', m.fiada_origem)
-          .maybeSingle();
-
-        if (existing) {
-          await supabase.from('stock_items').update({ quantidade: existing.quantidade + m.quantidade }).eq('id', existing.id);
-        } else {
-          await supabase.from('stock_items').insert({
-            modelo: m.modelo, cod_sap: m.cod_sap,
-            cesta: m.cesta_origem, fiada: m.fiada_origem,
-            quantidade: m.quantidade,
-          });
-        }
-      } else if (m.tipo === 'transferencia') {
-        const { data: destItem } = await supabase
-          .from('stock_items')
-          .select('id, quantidade')
-          .eq('modelo', m.modelo)
-          .eq('cesta', m.cesta_destino)
-          .eq('fiada', m.fiada_destino)
-          .maybeSingle();
-
-        if (destItem) {
-          const newQty = destItem.quantidade - m.quantidade;
-          if (newQty <= 0) {
-            await supabase.from('stock_items').delete().eq('id', destItem.id);
-          } else {
-            await supabase.from('stock_items').update({ quantidade: newQty }).eq('id', destItem.id);
-          }
-        }
-
-        const { data: origItem } = await supabase
-          .from('stock_items')
-          .select('id, quantidade')
-          .eq('modelo', m.modelo)
-          .eq('cesta', m.cesta_origem)
-          .eq('fiada', m.fiada_origem)
-          .maybeSingle();
-
-        if (origItem) {
-          await supabase.from('stock_items').update({ quantidade: origItem.quantidade + m.quantidade }).eq('id', origItem.id);
-        } else {
-          await supabase.from('stock_items').insert({
-            modelo: m.modelo, cod_sap: m.cod_sap,
-            cesta: m.cesta_origem, fiada: m.fiada_origem,
-            quantidade: m.quantidade,
-          });
-        }
+        return;
       }
-
-      const { error: insertError } = await supabase.from('movements').insert({
-        tipo: 'estorno',
-        modelo: m.modelo,
-        cod_sap: m.cod_sap,
-        cesta_origem: m.cesta_origem,
-        fiada_origem: m.fiada_origem,
-        cesta_destino: m.cesta_destino,
-        fiada_destino: m.fiada_destino,
-        quantidade: m.quantidade,
-        utilizador: user?.username || 'Unknown',
-        notas: `Estorno de ${m.tipo} (${format(new Date(m.created_at), 'dd/MM HH:mm')})`,
-      });
-
-      if (insertError) {
-        console.error('Insert error:', insertError);
-        throw insertError;
-      }
-
+      pedidoEstorno.current = null;
+      setEstornoTarget(null);
       queryClient.invalidateQueries({ queryKey: ['movements'] });
       queryClient.invalidateQueries({ queryKey: ['stock-overview'] });
       toast.success(t.reversalSuccess);
@@ -173,7 +114,6 @@ const HistoryTab = () => {
       toast.error(t.reversalError);
     } finally {
       setIsProcessing(false);
-      setEstornoTarget(null);
     }
   };
 
@@ -235,7 +175,7 @@ const HistoryTab = () => {
 
       {filteredMovements?.map((m) => {
         const info = getTypeInfo(m.tipo);
-        const canEstorno = m.tipo !== 'estorno';
+        const canEstorno = m.tipo !== 'estorno' && !estornados.has(m.id);
         return (
           <Card key={m.id} className={`p-3 border ${info.colorClass}`}>
             <div className="flex items-start justify-between">
