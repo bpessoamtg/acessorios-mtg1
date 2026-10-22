@@ -69,6 +69,7 @@ const pt = {
   updatedSuccess: 'Atualizado com sucesso',
   updateError: 'Erro ao atualizar',
   invalidQty: 'Quantidade inválida',
+  invalidCesta: 'Indique a cesta',
 
   // Stock tab
   stockOverview: 'Visão Global de Stock',
@@ -186,6 +187,7 @@ const en: typeof pt = {
   updatedSuccess: 'Updated successfully',
   updateError: 'Error updating',
   invalidQty: 'Invalid quantity',
+  invalidCesta: 'Enter the basket',
 
   stockOverview: 'Stock Overview',
   models: 'models',

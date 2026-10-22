@@ -7,17 +7,21 @@ import { Card } from '@/components/ui/card';
 import { Search, MapPin, Loader2, Pencil, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { getTranslations } from '@/lib/i18n';
+import { useCestaOptions } from '@/hooks/useFieldOptions';
+import { normalizeCesta } from '@/lib/inventory';
 
 const SearchTab = () => {
   const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editQty, setEditQty] = useState('');
   const [editFiada, setEditFiada] = useState('');
+  const [editCesta, setEditCesta] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const isAdmin = user?.username === 'Admin';
   const t = getTranslations(user?.username);
+  const cestaOptions = useCestaOptions();
 
   const [ovMatches, setOvMatches] = useState<Record<string, string[]>>({});
 
@@ -80,10 +84,18 @@ const SearchTab = () => {
     return acc;
   }, {} as Record<string, typeof results>);
 
-  const handleSave = async (itemId: string) => {
+  const handleSave = async (itemId: string, originalCesta: string) => {
     const qty = parseInt(editQty);
     if (isNaN(qty) || qty < 0) {
       toast.error(t.invalidQty);
+      return;
+    }
+    // Only normalise a cesta the admin actually changed: an old value such as
+    // "00" must not turn into MTG1_CB000 just because the quantity was edited.
+    const typed = editCesta.trim();
+    const cesta = typed === originalCesta ? originalCesta : normalizeCesta(typed);
+    if (!cesta) {
+      toast.error(t.invalidCesta);
       return;
     }
     setIsSaving(true);
@@ -91,7 +103,7 @@ const SearchTab = () => {
       if (qty === 0) {
         await supabase.from('stock_items').delete().eq('id', itemId);
       } else {
-        await supabase.from('stock_items').update({ quantidade: qty, fiada: editFiada || null }).eq('id', itemId);
+        await supabase.from('stock_items').update({ quantidade: qty, fiada: editFiada || null, cesta }).eq('id', itemId);
       }
       toast.success(t.updatedSuccess);
       setEditingId(null);
@@ -114,6 +126,10 @@ const SearchTab = () => {
           className="h-12 pl-10 text-base"
         />
       </div>
+
+      <datalist id="search-cesta-options">
+        {cestaOptions.map((c) => <option key={c} value={c} />)}
+      </datalist>
 
       {isLoading && (
         <div className="flex justify-center py-8">
@@ -141,7 +157,7 @@ const SearchTab = () => {
               </span>
             </div>
             {items?.map((item) => (
-              <div key={item.id} className="flex items-center gap-2 py-1.5 border-t border-border/50">
+              <div key={item.id} className="flex flex-wrap items-center gap-2 py-1.5 border-t border-border/50">
                 <MapPin className="w-3.5 h-3.5 text-accent shrink-0" />
                 <span className="text-sm text-foreground">
                   Cesta <span className="font-mono-app font-semibold">{item.cesta}</span>
@@ -160,6 +176,15 @@ const SearchTab = () => {
                 {editingId === item.id ? (
                   <div className="ml-auto flex items-center gap-1">
                     <Input
+                      value={editCesta}
+                      onChange={(e) => setEditCesta(e.target.value)}
+                      list="search-cesta-options"
+                      placeholder="Cesta"
+                      aria-label="Cesta"
+                      autoComplete="off"
+                      className="h-7 w-28 text-sm font-mono-app"
+                    />
+                    <Input
                       value={editFiada}
                       onChange={(e) => setEditFiada(e.target.value)}
                       placeholder="Fiada"
@@ -173,7 +198,7 @@ const SearchTab = () => {
                       min="0"
                     />
                     <button
-                      onClick={() => handleSave(item.id)}
+                      onClick={() => handleSave(item.id, item.cesta)}
                       disabled={isSaving}
                       className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors"
                     >
@@ -191,7 +216,7 @@ const SearchTab = () => {
                     <span className="text-sm font-bold text-foreground">{item.quantidade} un.</span>
                     {isAdmin && (
                       <button
-                        onClick={() => { setEditingId(item.id); setEditQty(String(item.quantidade)); setEditFiada(item.fiada || ''); }}
+                        onClick={() => { setEditingId(item.id); setEditQty(String(item.quantidade)); setEditFiada(item.fiada || ''); setEditCesta(item.cesta); }}
                         className="p-1 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded transition-colors"
                       >
                         <Pencil className="w-3.5 h-3.5" />
