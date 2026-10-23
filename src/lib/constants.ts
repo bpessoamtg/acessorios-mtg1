@@ -25,3 +25,7 @@ export const MOVEMENT_TYPES = [
   { value: 'saida', label: 'Saída', icon: '📤', color: 'text-destructive' },
   { value: 'transferencia', label: 'Transferência', icon: '🔄', color: 'text-primary' },
 ] as const;
+
+// Perfil só de consulta (gestores de produto): pesquisa, stock e histórico, sem gravar nada.
+// A base de dados também recusa qualquer gravação deste utilizador (supabase/perfil_gp.sql).
+export const isConsulta = (username?: string | null) => (username || '').toLowerCase() === 'gp';

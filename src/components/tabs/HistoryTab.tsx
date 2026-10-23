@@ -14,6 +14,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import { getTranslations } from '@/lib/i18n';
 import { estornarMovimento } from '@/lib/movimentos';
+import { isConsulta } from '@/lib/constants';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -175,7 +176,7 @@ const HistoryTab = () => {
 
       {filteredMovements?.map((m) => {
         const info = getTypeInfo(m.tipo);
-        const canEstorno = m.tipo !== 'estorno' && !estornados.has(m.id);
+        const canEstorno = m.tipo !== 'estorno' && !estornados.has(m.id) && !isConsulta(user?.username);
         return (
           <Card key={m.id} className={`p-3 border ${info.colorClass}`}>
             <div className="flex items-start justify-between">

@@ -9,7 +9,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { getTranslations } from '@/lib/i18n';
 
-const USERNAMES = ['Carmona', 'Deepak', 'Admin', 'inventario'];
+const USERNAMES = ['Carmona', 'Deepak', 'GP', 'Admin', 'inventario'];
 
 const Login = () => {
   const { login } = useAuth();

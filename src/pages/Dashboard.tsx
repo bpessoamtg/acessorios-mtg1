@@ -9,14 +9,16 @@ import StockTab from '@/components/tabs/StockTab';
 import MessagesTab from '@/components/tabs/MessagesTab';
 import InventoryTab from '@/components/tabs/InventoryTab';
 import { Package, History, Search, BarChart3, LogOut, Mail, ClipboardCheck, Truck } from 'lucide-react';
-import { PICKING_URL } from '@/lib/constants';
+import { PICKING_URL, isConsulta } from '@/lib/constants';
 import { getTranslations } from '@/lib/i18n';
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const isAdmin = user?.username === 'Admin';
   const isInventory = user?.username?.toLowerCase() === 'inventario';
-  const [activeTab, setActiveTab] = useState<string>(isInventory ? 'inventory' : 'movement');
+  // Gestores de produto: só veem onde está o material e o que se fez
+  const soVer = isConsulta(user?.username);
+  const [activeTab, setActiveTab] = useState<string>(isInventory ? 'inventory' : soVer ? 'search' : 'movement');
   const t = getTranslations(user?.username);
 
   const { data: unreadCount } = useQuery({
@@ -34,6 +36,12 @@ const Dashboard = () => {
 
   const tabs = isInventory
     ? [{ id: 'inventory', label: 'Inventário', icon: ClipboardCheck }]
+    : soVer
+    ? [
+        { id: 'search', label: t.search, icon: Search },
+        { id: 'stock', label: t.stock, icon: BarChart3 },
+        { id: 'history', label: t.history, icon: History },
+      ]
     : [
         { id: 'movement', label: t.movement, icon: Package },
         { id: 'search', label: t.search, icon: Search },
@@ -74,7 +82,7 @@ const Dashboard = () => {
 
       {/* The window scrolls, not <main>: an overflow here would trap sticky headers. */}
       <main className="flex-1 pb-20">
-        {activeTab === 'movement' && !isInventory && <MovementTab />}
+        {activeTab === 'movement' && !isInventory && !soVer && <MovementTab />}
         {activeTab === 'search' && !isInventory && <SearchTab />}
         {activeTab === 'stock' && !isInventory && <StockTab />}
         {activeTab === 'history' && !isInventory && <HistoryTab />}
